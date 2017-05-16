@@ -71,6 +71,7 @@ internal void memoryUnmapFile(File* f)
 // Output
 
 #define LINE_LENGTH 80
+#define P(...) fprintf(stdout, __VA_ARGS__)
 
 internal void title(const char* title)
 {
@@ -78,11 +79,11 @@ internal void title(const char* title)
     size_t tailLineLen = LINE_LENGTH - titleLen - 4;
 
     assert(titleLen < (LINE_LENGTH - 4));
-    fprintf(stdout, "-- %s ", title);
+    P("-- %s ", title);
 
-    for (int i = 0; i < tailLineLen; ++i) fprintf(stdout, "-");
+    for (int i = 0; i < tailLineLen; ++i) P("-");
 
-    fprintf(stdout, "\n\n");
+    P("\n\n");
 }
 
 //----------------------------------------------------------------------------------------------------------------------
