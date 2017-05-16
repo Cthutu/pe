@@ -2,8 +2,10 @@
 // PE File Format examiner
 //----------------------------------------------------------------------------------------------------------------------
 
-#include <stdio.h>
+#include <assert.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -66,12 +68,34 @@ internal void memoryUnmapFile(File* f)
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+// Output
+
+#define LINE_LENGTH 80
+
+internal void title(const char* title)
+{
+    size_t titleLen = strlen(title);
+    size_t tailLineLen = LINE_LENGTH - titleLen - 4;
+
+    assert(titleLen < (LINE_LENGTH - 4));
+    fprintf(stdout, "-- %s ", title);
+
+    for (int i = 0; i < tailLineLen; ++i) fprintf(stdout, "-");
+
+    fprintf(stdout, "\n\n");
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 // Main entry
 
 int main(int argc, char** argv)
 {
     File f = memoryMapFile(argv[0]);
     memoryUnmapFile(&f);
+
+    title("This is a test");
+    title("So is this!");
+
     return 0;
 }
 
