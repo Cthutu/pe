@@ -148,12 +148,83 @@ internal i32 dosHeader(const u8* start)
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+// COFF Header
+
+typedef struct _CoffHeader
+{
+    i16     machine;
+    i16     numberOfSections;
+    i32     timeDateStamp;
+    i32     pointerToSymbolTable;
+    i32     numberOfSymbols;
+    i16     sizeOfOptionHeader;
+    i16     characteristics;
+}
+CoffHeader;
+
+internal const char* getMachine(i16 code)
+{
+    struct { i16 code; const char* name; } machines[] = {
+        { 0x014c, "Intel 386" },
+        { 0x8664, "x64 / AMD AMD64" },
+        { 0x0162, "MIPS R3000" },
+        { 0x0168, "MIPS R10000" },
+        { 0x0169, "MIPS little endian WCI v2" },
+        { 0x0183, "Old Alpha AXP" },
+        { 0x0184, "Alpha AXP" },
+        { 0x01a2, "Hitachi SH3" },
+        { 0x01a3, "Hitachi SH3 DSP" },
+        { 0x01a6, "Hitachi SH4" },
+        { 0x01a8, "Hitachi SH5" },
+        { 0x01c0, "ARM little endian" },
+        { 0x01c2, "Thumb" },
+        { 0x01d3, "Matsushita AM33" },
+        { 0x01f0, "PowerPC little endian" },
+        { 0x01f1, "PowerPC with floating point support" },
+        { 0x0200, "Intel IA64" },
+        { 0x0266, "MIPS16" },
+        { 0x0268, "Motorola 68000 series" },
+        { 0x0284, "Alpha AXP 64-bit" },
+        { 0x0366, "MIPS with FPU" },
+        { 0x0466, "MIPS16 with FPU" },
+        { 0x0ebc, "EFI Byte Code" },
+        { 0x9041, "Mitsubishi M32R little endian" },
+        { 0xc0ee, "CLR pure MSIL" },
+    };
+
+    for (int i = 0; i < sizeof(machines) / sizeof(machines[0]); ++i)
+    {
+        if (machines[i].code == code) return machines[i].name;
+    }
+
+    return "Unknown";
+}
+
+internal coffHeader(const u8* start)
+{
+    CoffHeader* hdr = (CoffHeader *)start;
+    title("COFF Header");
+
+    P("             Machine: %s\n", getMachine(hdr->machine));
+    P_I16("  Number of sections", hdr->numberOfSections);
+    P_I32("     Time/Date stamp", hdr->timeDateStamp);
+    P_I32("   Number of symbols", hdr->numberOfSymbols);
+    P_I16("Optional header size", hdr->sizeOfOptionHeader);
+    P("     Characteristics: ");
+    if (hdr->characteristics & 0x02) P("EXECUTABLE ");
+    if (hdr->characteristics & 0x200) P("NON-RELOCATABLE");
+    if (hdr->characteristics & 0x2000) P("DLL");
+    P("\n");
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 // Main entry
 
 int main(int argc, char** argv)
 {
     File f = memoryMapFile(argv[0]);
-    dosHeader(f.buffer);
+    i16 coffHeaderRVA = dosHeader(f.buffer);
+    coffHeader(f.buffer + coffHeaderRVA + 4);
     memoryUnmapFile(&f);
 
     return 0;
