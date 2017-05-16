@@ -30,7 +30,7 @@ typedef uint64_t    u64;
 
 typedef struct _File
 {
-    const void*     buffer;
+    const u8*       buffer;
     i64             size;
 
     HANDLE          file;
@@ -86,16 +86,75 @@ internal void title(const char* title)
     P("\n\n");
 }
 
+#define PN() P("\n")
+#define P_I16(lead, value) P("%s: %04hx (%d)\n", lead, value, value)
+#define P_I32(lead, value) P("%s: %08x (%d)\n", lead, value, value)
+#define P_A16(lead, value) P("%s: %04hx\n", lead, value)
+
+//----------------------------------------------------------------------------------------------------------------------
+// DOS Header
+
+typedef struct _DosHeader
+{
+    char        signature[2];
+    i16         lastSize;
+    i16         numBlocks;
+    i16         numReloc;
+    i16         hdrSize;
+    i16         minAlloc;
+    i16         maxAlloc;
+    u16         ss;
+    u16         sp;
+    i16         checkSum;
+    u16         ip;
+    u16         cs;
+    i16         relocPos;
+    i16         numOverlays;
+    i16         reserved1[4];
+    i16         oemId;
+    i16         oemInfo;
+    i16         reserved2[10];
+    i32         e_lfanew;
+}
+DosHeader;
+
+internal i32 dosHeader(const u8* start)
+{
+    DosHeader* hdr = (DosHeader *)start;
+
+    title("DOS Header");
+
+    P("  signature: '%c%c'\n", hdr->signature[0], hdr->signature[1]);
+    P_I16("   lastSize", hdr->lastSize);
+    P_I16("  numBlocks", hdr->numBlocks);
+    P_I16("   numReloc", hdr->numReloc);
+    P_I16("    hdrSize", hdr->hdrSize);
+    P_I16("   minAlloc", hdr->minAlloc);
+    P_I16("   maxAlloc", hdr->maxAlloc);
+    P_A16("         SS", hdr->ss);
+    P_A16("         SP", hdr->sp);
+    P_I16("   checksum", hdr->checkSum);
+    P_A16("         IP", hdr->ip);
+    P_A16("         CS", hdr->cs);
+    P_I16("   relocPos", hdr->relocPos);
+    P_I16("numOverlays", hdr->numOverlays);
+    P_I16("     OEM Id", hdr->oemId);
+    P_I16("   OEM Info", hdr->oemInfo);
+    P_I32("    LFA New", hdr->e_lfanew);
+
+    PN();
+
+    return hdr->e_lfanew;
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 // Main entry
 
 int main(int argc, char** argv)
 {
     File f = memoryMapFile(argv[0]);
+    dosHeader(f.buffer);
     memoryUnmapFile(&f);
-
-    title("This is a test");
-    title("So is this!");
 
     return 0;
 }
