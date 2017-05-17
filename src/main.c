@@ -87,9 +87,12 @@ internal void title(const char* title)
 }
 
 #define PN() P("\n")
-#define P_I16(lead, value) P("%s: %04hx (%d)\n", lead, value, value)
-#define P_I32(lead, value) P("%s: %08x (%d)\n", lead, value, value)
-#define P_A16(lead, value) P("%s: %04hx\n", lead, value)
+#define P_I16(lead, value) P("%s: 0x%04hx (%d)\n", lead, value, value)
+#define P_I32(lead, value) P("%s: 0x%08x (%d)\n", lead, value, value)
+#define P_I64(lead, value) P("%s: 0x%016llx (%lld)\n", lead, value, value)
+#define P_A16(lead, value) P("%s: 0x%04hx\n", lead, value)
+#define P_A32(lead, value) P("%s: 0x%08x\n", lead, value)
+#define P_A64(lead, value) P("%s: 0x%016llx\n", lead, value)
 
 //----------------------------------------------------------------------------------------------------------------------
 // DOS Header
@@ -200,7 +203,7 @@ internal const char* getMachine(i16 code)
     return "Unknown";
 }
 
-internal coffHeader(const u8* start)
+internal i64 coffHeader(const u8* start, int* is64)
 {
     CoffHeader* hdr = (CoffHeader *)start;
     title("COFF Header");
@@ -215,6 +218,282 @@ internal coffHeader(const u8* start)
     if (hdr->characteristics & 0x200) P("NON-RELOCATABLE");
     if (hdr->characteristics & 0x2000) P("DLL");
     P("\n");
+
+    PN();
+
+    *is64 = (hdr->machine == (i16)0x8664) ? 1 : 0;
+
+    return (i64)sizeof(CoffHeader);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+// PE Optional Header
+
+typedef struct _DataDirectory
+{
+    i32     virtualAddress;
+    i32     size;
+}
+DataDirectory;
+
+typedef struct _OptionalHeader
+{
+    i16             signature;
+    i8              majorLinkerVersion;
+    i8              minorLinkerVersion;
+    i32             sizeOfCode;
+    i32             sizeOfInitialisedData;
+    i32             sizeOfUninitalisedData;
+    i32             addressOfEntryPoint;
+    i32             baseOfCode;
+    i32             baseOfData;
+
+    i32             imageBase;
+    i32             sectionAlignment;
+    i32             fileAlignment;
+    i16             majorOSVersion;
+    i16             minorOSVersion;
+    i16             majorImageVersion;
+    i16             minorImageVersion;
+    i16             majorSubsystemVersion;
+    i16             minorSubsystemVersion;
+    i32             win32VersionValue;
+    i32             sizeImage;
+    i32             sizeHeaders;
+    i32             checkSum;
+    i16             subSytem;
+    i16             dllCharacteristics;
+    i32             sizeOfStackReserve;
+    i32             sizeOfStackCommit;
+    i32             sizeOfHeapReserve;
+    i32             sizeOfHeapCommit;
+    i32             loaderFlags;
+    i32             numberOfRvaAndSizes;
+    DataDirectory   dataDirectory[0];
+}
+OptionalHeader;
+
+typedef struct _OptionalHeader64
+{
+    i16             signature;
+    i8              majorLinkerVersion;
+    i8              minorLinkerVersion;
+    i32             sizeOfCode;
+    i32             sizeOfInitialisedData;
+    i32             sizeOfUninitalisedData;
+    i32             addressOfEntryPoint;
+    i32             baseOfCode;
+
+    i64             imageBase;
+    i32             sectionAlignment;
+    i32             fileAlignment;
+    i16             majorOSVersion;
+    i16             minorOSVersion;
+    i16             majorImageVersion;
+    i16             minorImageVersion;
+    i16             majorSubsystemVersion;
+    i16             minorSubsystemVersion;
+    i32             win32VersionValue;
+    i32             sizeImage;
+    i32             sizeHeaders;
+    i32             checkSum;
+    i16             subSytem;
+    i16             dllCharacteristics;
+    i64             sizeOfStackReserve;
+    i64             sizeOfStackCommit;
+    i64             sizeOfHeapReserve;
+    i64             sizeOfHeapCommit;
+    i32             loaderFlags;
+    i32             numberOfRvaAndSizes;
+    DataDirectory   dataDirectory[0];
+}
+OptionalHeader64;
+
+internal i64 peHeader32(const u8* start)
+{
+    const OptionalHeader* hdr = (const OptionalHeader *)start;
+    int subSystem;
+
+    title("Optional PE Header");
+
+    P("                 Signature: ");
+    switch (hdr->signature)
+    {
+    case 0x10b:     P("32-bit executable image\n");         break;
+    case 0x20b:     P("64-bit executable image\n");         break;
+    case 0x107:     P("ROM image\n");                       break;
+    default:        P("Unknown\n");                         break;
+    }
+
+    P("            Linker version: %d.%d\n", (int)hdr->majorImageVersion, (int)hdr->minorLinkerVersion);
+    P_I32("              Size of code", hdr->sizeOfCode);
+    P_I32("  Size of initialised data", hdr->sizeOfInitialisedData);
+    P_I32("Size of uninitialised data", hdr->sizeOfUninitalisedData);
+    P_I32("    Address of entry point", hdr->addressOfEntryPoint);
+    P_I32("              Base of code", hdr->baseOfCode);
+    P_I32("              Base of data", hdr->baseOfData);
+    P_A32("                Image base", hdr->imageBase);
+    P_I32("         Section alignment", hdr->sectionAlignment);
+    P_I32("            File alignment", hdr->fileAlignment);
+    P("                OS version: %d.%d\n", (int)hdr->majorOSVersion, (int)hdr->minorOSVersion);
+    P("             Image version: %d.%d\n", (int)hdr->majorImageVersion, (int)hdr->minorImageVersion);
+    P("         Subsystem version: %d.%d\n", (int)hdr->majorSubsystemVersion, (int)hdr->minorSubsystemVersion);
+    P_I32("            Size of header", hdr->sizeHeaders);
+    P_I32("                  Checksum", hdr->checkSum);
+
+    const char* subSystems[] = {
+        "Unknown subsystem",
+        "No subsystem required",
+        "Windows GUI",
+        "Windows character mode",
+        "Unknown subsystem",
+        "OS/2 CUI",
+        "Unknown subsystem",
+        "POSIX CUI",
+        "Unknown subsystem",
+        "Windows CE",
+        "EFI application",
+        "EFI driver with boot services",
+        "EFI driver with run-time services",
+        "EFI ROM image",
+        "Xbox",
+        "Unknown subsystem",
+        "Boot application",
+    };
+    subSystem = hdr->subSytem;
+    if (subSystem < 0 || subSystem > 16) subSystem = 0;
+    P("                 Subsystem: %s\n", subSystems[subSystem]);
+
+    if (hdr->dllCharacteristics)
+    {
+        P("       DLL characteristics: ");
+        if (hdr->dllCharacteristics & 0x0040) P("RELOCATABLE ");
+        if (hdr->dllCharacteristics & 0x0080) P("INTEGRITY-FORCED ");
+        if (hdr->dllCharacteristics & 0x0100) P("DEP-COMPATIBLE ");
+        if (hdr->dllCharacteristics & 0x0200) P("NO-ISOLATION ");
+        if (hdr->dllCharacteristics & 0x0400) P("NO-SEH ");
+        if (hdr->dllCharacteristics & 0x0800) P("NO-BIND ");
+        if (hdr->dllCharacteristics & 0x2000) P("WDM-DRIVER ");
+        if (hdr->dllCharacteristics & 0x8000) P("TERMINAL-SERVER-AWARE ");
+        P("(0x%04hx)", hdr->dllCharacteristics);
+        PN();
+    }
+    else
+    {
+        P("       DLL characteristics: None (0x0000)\n");
+    }
+
+    P_I32("     Size of stack reserve", hdr->sizeOfStackReserve);
+    P_I32("      Size of stack commit", hdr->sizeOfStackCommit);
+    P_I32("      Size of heap reserve", hdr->sizeOfHeapReserve);
+    P_I32("       Size of heap commit", hdr->sizeOfHeapCommit);
+    P_I32("   Loader flags (obsolete)", hdr->loaderFlags);
+    P_I32("  Number of RVAs and sizes", hdr->numberOfRvaAndSizes);
+    
+
+
+    PN();
+
+    return 0;
+}
+
+internal i64 peHeader64(const u8* start)
+{
+    const OptionalHeader64* hdr = (const OptionalHeader64 *)start;
+    int subSystem;
+
+    title("Optional PE Header");
+
+    P("                 Signature: ");
+    switch (hdr->signature)
+    {
+    case 0x10b:     P("32-bit executable image\n");         break;
+    case 0x20b:     P("64-bit executable image\n");         break;
+    case 0x107:     P("ROM image\n");                       break;
+    default:        P("Unknown\n");                         break;
+    }
+
+    P("            Linker version: %d.%d\n", (int)hdr->majorImageVersion, (int)hdr->minorLinkerVersion);
+    P_I32("              Size of code", hdr->sizeOfCode);
+    P_I32("  Size of initialised data", hdr->sizeOfInitialisedData);
+    P_I32("Size of uninitialised data", hdr->sizeOfUninitalisedData);
+    P_I32("    Address of entry point", hdr->addressOfEntryPoint);
+    P_I32("              Base of code", hdr->baseOfCode);
+    P_A64("                Image base", hdr->imageBase);
+    P_I32("         Section alignment", hdr->sectionAlignment);
+    P_I32("            File alignment", hdr->fileAlignment);
+    P("                OS version: %d.%d\n", (int)hdr->majorOSVersion, (int)hdr->minorOSVersion);
+    P("             Image version: %d.%d\n", (int)hdr->majorImageVersion, (int)hdr->minorImageVersion);
+    P("         Subsystem version: %d.%d\n", (int)hdr->majorSubsystemVersion, (int)hdr->minorSubsystemVersion);
+    P_I32("            Size of header", hdr->sizeHeaders);
+    P_I32("                  Checksum", hdr->checkSum);
+
+    const char* subSystems[] = {
+        "Unknown subsystem",
+        "No subsystem required",
+        "Windows GUI",
+        "Windows character mode",
+        "Unknown subsystem",
+        "OS/2 CUI",
+        "Unknown subsystem",
+        "POSIX CUI",
+        "Unknown subsystem",
+        "Windows CE",
+        "EFI application",
+        "EFI driver with boot services",
+        "EFI driver with run-time services",
+        "EFI ROM image",
+        "Xbox",
+        "Unknown subsystem",
+        "Boot application",
+    };
+    subSystem = hdr->subSytem;
+    if (subSystem < 0 || subSystem > 16) subSystem = 0;
+    P("                 Subsystem: %s\n", subSystems[subSystem]);
+
+    if (hdr->dllCharacteristics)
+    {
+        P("       DLL characteristics: ");
+        if (hdr->dllCharacteristics & 0x0040) P("RELOCATABLE ");
+        if (hdr->dllCharacteristics & 0x0080) P("INTEGRITY-FORCED ");
+        if (hdr->dllCharacteristics & 0x0100) P("DEP-COMPATIBLE ");
+        if (hdr->dllCharacteristics & 0x0200) P("NO-ISOLATION ");
+        if (hdr->dllCharacteristics & 0x0400) P("NO-SEH ");
+        if (hdr->dllCharacteristics & 0x0800) P("NO-BIND ");
+        if (hdr->dllCharacteristics & 0x2000) P("WDM-DRIVER ");
+        if (hdr->dllCharacteristics & 0x8000) P("TERMINAL-SERVER-AWARE ");
+        P("(0x%04hx)", hdr->dllCharacteristics);
+        PN();
+    }
+    else
+    {
+        P("       DLL characteristics: None (0x0000)\n");
+    }
+
+    P_I64("     Size of stack reserve", hdr->sizeOfStackReserve);
+    P_I64("      Size of stack commit", hdr->sizeOfStackCommit);
+    P_I64("      Size of heap reserve", hdr->sizeOfHeapReserve);
+    P_I64("       Size of heap commit", hdr->sizeOfHeapCommit);
+    P_I32("   Loader flags (obsolete)", hdr->loaderFlags);
+    P_I32("  Number of RVAs and sizes", hdr->numberOfRvaAndSizes);
+
+
+
+    PN();
+
+    return 0;
+}
+
+internal i64 peHeader(const u8* start, int is64)
+{
+    if (is64)
+    {
+        return peHeader64(start);
+    }
+    else
+    {
+        return peHeader32(start);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -222,9 +501,21 @@ internal coffHeader(const u8* start)
 
 int main(int argc, char** argv)
 {
-    File f = memoryMapFile(argv[0]);
-    i16 coffHeaderRVA = dosHeader(f.buffer);
-    coffHeader(f.buffer + coffHeaderRVA + 4);
+    int i = 0;
+    int is64;
+
+    if (argc > 1)
+    {
+        i = 1;
+    }
+
+    File f = memoryMapFile(argv[i]);
+
+    i64 p = (i64)dosHeader(f.buffer);
+    p += 4;
+    p += coffHeader(f.buffer + p, &is64);
+    p += peHeader(f.buffer + p, is64);
+
     memoryUnmapFile(&f);
 
     return 0;
