@@ -309,6 +309,33 @@ typedef struct _OptionalHeader64
 }
 OptionalHeader64;
 
+internal void outputDataDirectory(const char* title, const DataDirectory* data)
+{
+    P("%s: %08x (%d)\n", title, data->virtualAddress, data->size);
+}
+
+internal void outputDataDirectories(const DataDirectory* data)
+{
+    PN();
+
+    outputDataDirectory("                   Exports", &data[0]);
+    outputDataDirectory("                   Imports", &data[1]);
+    outputDataDirectory("                  Resouces", &data[2]);
+    outputDataDirectory("                 Exception", &data[3]);
+    outputDataDirectory("                  Security", &data[4]);
+    outputDataDirectory("           Base Relocation", &data[5]);
+    outputDataDirectory("                     Debug", &data[6]);
+    outputDataDirectory("              Architecture", &data[7]);
+    outputDataDirectory("            Global Pointer", &data[8]);
+    outputDataDirectory("                       TLS", &data[9]);
+    outputDataDirectory("        Load Configuration", &data[10]);
+    outputDataDirectory("             Bound Imports", &data[11]);
+    outputDataDirectory("      Import Address Table", &data[12]);
+    outputDataDirectory("      Delayed Import Table", &data[13]);
+    outputDataDirectory("      COM descriptor table", &data[14]);
+
+}
+
 internal i64 peHeader32(const u8* start)
 {
     const OptionalHeader* hdr = (const OptionalHeader *)start;
@@ -390,7 +417,7 @@ internal i64 peHeader32(const u8* start)
     P_I32("   Loader flags (obsolete)", hdr->loaderFlags);
     P_I32("  Number of RVAs and sizes", hdr->numberOfRvaAndSizes);
     
-
+    outputDataDirectories(hdr->dataDirectory);
 
     PN();
 
@@ -477,7 +504,7 @@ internal i64 peHeader64(const u8* start)
     P_I32("   Loader flags (obsolete)", hdr->loaderFlags);
     P_I32("  Number of RVAs and sizes", hdr->numberOfRvaAndSizes);
 
-
+    outputDataDirectories(hdr->dataDirectory);
 
     PN();
 
